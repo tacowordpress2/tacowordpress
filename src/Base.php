@@ -549,7 +549,7 @@ class Base
         $fields = $this->getFields();
         
         foreach ($admin_columns as $k) {
-            $field = $fields[$k];
+            $field = isset($fields[$k]) ? $fields[$k] : null;
             $columns[$k] = (is_array($field) && array_key_exists('label', $field))
                 ? $field['label']
                 : Str::human(str_replace('-', ' ', $k));

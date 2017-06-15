@@ -22,7 +22,6 @@ $taxonomies_infos = array();
 
 class Loader
 {
-        
     /**
      * Load all the posts
      */
@@ -52,6 +51,7 @@ class Loader
     {
         $instance = new $class;
         $post_type = $instance->getPostType();
+        \Taco\Post::$post_types[$post_type] = $instance;
 
         // WordPress has a limit of 20 characters per
         if (strlen($post_type) > 20) {
@@ -66,7 +66,14 @@ class Loader
         
         //add_action('init', array($instance, 'registerPostType'));
         $instance->registerPostType();
-        add_action('save_post', array($instance, 'addSaveHooks'));
+
+        // We need to add one filter for each meta field, unfortunately
+        foreach (array_keys($instance->getFields()) as $meta_key) {
+            // Prevent collisions since it doesn't really matter which class this filter is registered on
+            if (has_filter('_wp_post_revision_field_' . $meta_key, '\Taco\Post::getRevisionMetaValue') === false) {
+                add_filter( '_wp_post_revision_field_' . $meta_key, '\Taco\Post::getRevisionMetaValue', 10, 4 );   
+            }
+        }
 
         if (is_admin()) {
             // If we're in the edit screen, we want the post loaded

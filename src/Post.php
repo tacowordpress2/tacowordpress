@@ -15,15 +15,20 @@ use Taco\Util\Str as Str;
  */
 class Post extends Base
 {
+    // Keep a static list of post types so we can look up the post class later
+    // This prevents us from having to registering 
+    public static $post_types;
+
     const ID = 'ID';
     const KEY_CLASS = 'class';
     const KEY_NONCE = 'nonce';
     const URL_SUBMIT = '/wp-content/plugins/taco/post/submit.php';
 
-    public $singular    = null;
-    public $plural      = null;
-    public $last_error  = null;
-    private $_terms     = array();
+    public $singular            = null;
+    public $plural              = null;
+    public $last_error          = null;
+    private $_terms             = array();
+    private $_real_post_type    = null;
     
     
     public function getKey()
@@ -40,6 +45,14 @@ class Post extends Base
      */
     public function load($id, $load_terms = true)
     {
+        // Load the latest revision if this is a preview but save the post type
+        // So we can load the metadata later
+        $this->_real_post_type = $id->post_type;
+        if (is_preview()) {
+            $revisions = wp_get_post_revisions($id);
+            $id = array_shift($revisions);
+        }
+
         $info = (is_object($id)) ? $id : get_post($id);
         if (!is_object($info)) {
             return false;
@@ -55,7 +68,7 @@ class Post extends Base
         $this->_info = (array) $info;
 
         // meta
-        $meta = get_post_meta($this->_info[self::ID]);
+        $meta = get_metadata($this->getRealPostType(), $this->_info[self::ID]);
         if (Arr::iterable($meta)) {
             foreach ($meta as $k => $v) {
                 $this->set($k, current($v));
@@ -63,10 +76,9 @@ class Post extends Base
         }
 
         // terms
-        if (!$load_terms) {
-            return true;
+        if ($load_terms) {
+            $this->loadTerms();
         }
-        $this->loadTerms();
 
         return true;
     }
@@ -105,7 +117,7 @@ class Post extends Base
         }
 
         foreach ($taxonomy_keys as $taxonomy_key) {
-            $terms = wp_get_post_terms($this->get(self::ID), $taxonomy_key);
+            $terms = wp_get_object_terms($this->get(self::ID), $taxonomy_key);
             if (!Arr::iterable($terms)) {
                 continue;
             }
@@ -129,7 +141,9 @@ class Post extends Base
 
     /**
      * Save a post
-     * @param bool $exclude_post
+     * By the time this hook is reached, the post revision has been saved and this is saving the main post
+     * @param bool $exclude_post If true, the post itself is not saved, and only the metadata
+     * @param bool $is_revision Are we saving a revision
      * @return mixed Integer on success: post ID, false on failure (with WP_Error accessible via getLastError)
      */
     public function save($exclude_post = false)
@@ -193,31 +207,15 @@ class Post extends Base
             }
         }
 
-        // delete old meta
-        if ($is_update) {
-            $old_meta = get_post_meta($this->_info[self::ID]);
-            if (Arr::iterable($old_meta)) {
-                foreach ($old_meta as $old_meta_k => $old_meta_vals) {
-                    if (preg_match('/^_/', $old_meta_k)) {
-                        continue;
-                    }
-
-                    delete_post_meta($this->_info[self::ID], $old_meta_k);
-                }
-            }
-        }
-
-        // save meta
-        if (count($meta) > 0) {
+        // Save meta to either the post or revision
+        if (Arr::iterable($meta)) {
             foreach ($meta as $k => $v) {
                 if (preg_match('/link/', $fields_and_attribs[$k]['type'])) {
                     $v = urldecode($v);
                 }
-                if ($is_update) {
-                    update_post_meta($this->_info[self::ID], $k, $v);
-                } else {
-                    add_post_meta($this->_info[self::ID], $k, $v);
-                }
+                
+                // update_post_meta handles both add and update
+                update_metadata($this->getPostType(), $this->{self::ID}, $k, $v);
             }
         }
 
@@ -251,7 +249,9 @@ class Post extends Base
                     }
                 }
                 
-                wp_set_post_terms($this->_info[self::ID], $term_ids, $taxonomy_key);
+                // Save taxonomy to the revision so previews work properly
+                // These don't get restored when going back revisions
+                wp_set_object_terms($this->_info[self::ID], $term_ids, $taxonomy_key);
             }
         }
 
@@ -366,23 +366,43 @@ class Post extends Base
     }
 
 
+    public static function getClassFromPostType($post_type) {
+        if (empty(\Taco\Post::$post_types[$post_type])) {
+            return false;
+        } else {
+            return \Taco\Post::$post_types[$post_type];
+        }
+    }
+
+
     /**
      * Add save hooks
      * @param integer $post_id
      * TODO add nonce check
      */
-    public function addSaveHooks($post_id)
+    public static function addSaveHooks($post_id, $post, $update)
     {
-        global $post;
-        $class = get_called_class();
-        $old_entry = new $class;
-        $old_entry->load($post_id);
-
-        // Make sure we have the right post type
-        // Without this, you'll get weird cross-polination errors across post types
-        if (!is_object($post) || $post->post_type !== $this->getPostType()) {
+        // Don't save the post itself if this is a preview
+        // The revision still needs to be saved to since that's how the preview fields get populated
+        if ($post->post_type !== 'revision' && $_REQUEST['wp-preview'] === 'dopreview') {
             return;
         }
+
+        // Make sure we have the right post type or we're on a revision
+        if ($post->post_type === 'revision') {
+            $post_type = get_post($post->post_parent)->post_type;
+        } else {
+            $post_type = $post->post_type;
+        }
+
+        $categories = $_POST['post_category'];
+
+        $class = static::getClassFromPostType($post_type);
+        if (empty($class)) {
+            return;
+        }
+
+        $instance = new $class;
 
         // Check autosave
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
@@ -402,18 +422,168 @@ class Post extends Base
 
         // Get fields to assign
         $updated_entry = new $class;
-        $field_keys = array_merge(static::getCoreFieldKeys(), $this->getMetaFieldKeys());
+        $field_keys = array_merge(static::getCoreFieldKeys(), $instance->getMetaFieldKeys());
+
+        // Get terms to assign
+        $taxonomies = $updated_entry->getTaxonomies();
+        $taxonomy_field_keys = [];
+        foreach ($taxonomies as $taxonomy) {
+            $taxonomy_field_keys[$post_type . '_' . $taxonomy] = $taxonomy;
+        }
 
         // Assign vars
         foreach ($_POST as $k => $v) {
             if (in_array($k, $field_keys)) {
                 $updated_entry->set($k, $v);
             }
+
+            if (!empty($taxonomy_field_keys[$k])) {
+                $taxonomy = $taxonomy_field_keys[$k];
+
+                $terms = [];
+                foreach ($v as $term_id) {
+                    // For some reason Wordpress posts 0 to the category each time
+                    if ($term_id != 0) {
+                        $terms[] = get_term($term_id, $taxonomy);
+                    }
+                }
+
+                $updated_entry->setTerms($terms, $taxonomy);
+            }
         }
+
+        // Make sure the revision is getting saved if this is a revision
+        $updated_entry->set(self::ID, $post->{self::ID});
 
         return $updated_entry->save(true);
     }
 
+
+    /**
+     * Add restore revision hooks
+     * @param integer $post_id
+     * @param integer $revision_id
+     */
+    public static function addRestoreRevisionHooks($post_id, $revision_id)
+    {
+        $post = get_post($post_id);
+
+        // Make sure we have the right post type
+        $class = static::getClassFromPostType($post->post_type);
+        if (empty($class)) {
+            return;
+        }
+
+        $instance = new $class;
+
+        // Make sure we have the right post type
+        // Without this, you'll get weird cross-polination errors across post types
+        if (!is_object($post) || $post->post_type !== $instance->getPostType()) {
+            return;
+        }
+
+        return $instance->restoreRevisionMeta($post, $revision_id);
+    }
+
+
+    /**
+      * Restore a revision by writing the revision metadata to the post itself
+      * @param integer $post_id
+      * @param integer $revision_id
+      */
+    private function restoreRevisionMeta($post, $revision_id) {
+        $fields_and_attribs = static::getFields();
+        $meta_keys = array_keys($fields_and_attribs);
+
+        $revision_meta = get_metadata($post->post_type, $revision_id, '', true);
+
+        if ($revision_meta === false) {
+            foreach($meta_keys as $meta_key) {
+                delete_post_meta($post->{self::ID}, $meta_key);
+            }
+        } else {
+            foreach($meta_keys as $meta_key) {
+                if (array_key_exists($meta_key, $revision_meta)) {
+                    update_post_meta($post->{self::ID}, $meta_key, $revision_meta[$meta_key][0]);
+                } else {
+                    delete_post_meta($post->{self::ID}, $meta_key);
+                }
+            }
+        }
+    }
+
+
+    /**
+      * Get a meta value for a revision
+      * @param string $compare_from_value The value of the revision - this seems to always be empty which is why we need to override this function
+      * @param string $field The field to compare
+      * @param WP_Post $revision The post revision
+      * @param string $from_to A string 'from' or 'to' specifying whether this is from or to
+      */
+    public static function getRevisionMetaValue($compare_from_value, $field, $revision, $from_to) {
+        $post = get_post($revision->post_parent);
+
+        if (empty($post)) {
+            return;
+        }
+
+        $class = static::getClassFromPostType($post->post_type);
+
+        if (empty($class)) {
+            return;
+        }
+
+        return get_metadata($post->post_type, $revision->{self::ID}, $field, true);
+    }
+
+
+    /**
+      * Add meta field values to revision fields
+      * @param $fields The default fields that come from wordpress
+      */
+    public static function getRevisionMetaFields($fields) {
+        // When grabbing revisions, the current post comes in as a regular
+        // global post object, but subsequent revisions are determined by the
+        // post_id for some reason
+        global $post;
+        if (!empty($post)) {
+            $current_post = $post;
+        } else if (!empty($_POST['post_id'])) {
+            $current_post = get_post($_POST['post_id']);
+        } else {
+            return $fields;
+        }
+
+        // Figure out the class for this post and get fields
+        $class = static::getClassFromPostType($current_post->post_type);
+        if (empty($class)) {
+            return $fields;
+        }
+
+        $instance = new $class;
+        foreach ($instance->getFields() as $key => $value) {
+            $fields[$key] = $key;
+        }
+
+        return $fields;
+    }
+
+
+    /**
+      * Always trigger a change for previews so everything is the most current
+      * This allows us to always show taxonomy changes when previewing
+      */
+    public static function alwaysPreviewChanges($check_for_changes, $last_revision, $post) {
+        if (
+            is_preview() || 
+            (!empty($_REQUEST['wp-preview']) && $_REQUEST['wp-preview'] === 'dopreview')
+        ) {
+            return true;
+        } else {
+            return $check_for_changes;
+        }
+    }
+    
 
     /**
      * Render a meta box
@@ -502,7 +672,7 @@ class Post extends Base
      */
     public function getTaxonomies()
     {
-        return ($this->getPostType() === 'post') ? array('category') : array();
+        return ($this->getRealPostType() === 'post') ? array('category') : array();
     }
 
 
@@ -966,6 +1136,17 @@ class Post extends Base
         return $this->getPostType();
     }
 
+
+    /**
+     * Get real post type (if this is a revision)
+     */
+    public function getRealPostType() {
+        if (!empty($this->_real_post_type)) {
+            return $this->_real_post_type;
+        } else {
+            return $this->getPostType();
+        }
+    }
 
     /**
      * Should this content type be excluded from search or no?

@@ -301,6 +301,13 @@ class Term extends Base
 
 
     /**
+     * Get custom fields.  Default to empty array.
+     */
+    public function getFields() {
+        return [];
+    }
+
+    /**
      * Add save hooks
      * @param integer $term_id
      * TODO add nonce check
