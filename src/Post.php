@@ -68,7 +68,7 @@ class Post extends Base
         $this->_info = (array) $info;
 
         // meta
-        $meta = get_metadata($this->getRealPostType(), $this->_info[self::ID]);
+        $meta = get_metadata('post', $this->_info[self::ID]);
         if (Arr::iterable($meta)) {
             foreach ($meta as $k => $v) {
                 $this->set($k, current($v));
@@ -215,7 +215,7 @@ class Post extends Base
                 }
                 
                 // update_post_meta handles both add and update
-                update_metadata($this->getPostType(), $this->{self::ID}, $k, $v);
+                update_metadata('post', $this->{self::ID}, $k, $v);
             }
         }
 
@@ -495,7 +495,7 @@ class Post extends Base
         $fields_and_attribs = static::getFields();
         $meta_keys = array_keys($fields_and_attribs);
 
-        $revision_meta = get_metadata($post->post_type, $revision_id, '', true);
+        $revision_meta = get_metadata('post', $revision_id, '', true);
 
         if ($revision_meta === false) {
             foreach($meta_keys as $meta_key) {
@@ -533,7 +533,7 @@ class Post extends Base
             return;
         }
 
-        return get_metadata($post->post_type, $revision->{self::ID}, $field, true);
+        return get_metadata('post', $revision->{self::ID}, $field, true);
     }
 
 
