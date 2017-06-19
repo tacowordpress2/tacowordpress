@@ -367,10 +367,10 @@ class Post extends Base
 
 
     public static function getClassFromPostType($post_type) {
-        if (empty(\Taco\Post::$post_types[$post_type])) {
+        if (empty(self::$post_types[$post_type])) {
             return false;
         } else {
-            return \Taco\Post::$post_types[$post_type];
+            return self::$post_types[$post_type];
         }
     }
 
@@ -394,8 +394,6 @@ class Post extends Base
         } else {
             $post_type = $post->post_type;
         }
-
-        $categories = $_POST['post_category'];
 
         $class = static::getClassFromPostType($post_type);
         if (empty($class)) {
@@ -582,6 +580,37 @@ class Post extends Base
         } else {
             return $check_for_changes;
         }
+    }
+
+
+    /**
+      * Check for metafield changes here.  The Wordpress provided one is unreliable since
+      * it doesn't load the meta fields of the current post, but rather what's already in
+      * the database for some reason
+      * 
+      */
+    public static function checkMetafieldChanges($post_has_changed, $last_revision, $post) {
+        // We don't need to go through this if Wordpress has already determined that this
+        // post was modified
+        if ($post_has_changed === true) {
+            return $post_has_changed;
+        }
+
+        // Modified version of wordpress revision.php line 157
+        foreach ( array_keys( _wp_post_revision_fields( $post ) ) as $field ) {
+            if (isset($_POST[$field])) {
+                $field_value = $_POST[$field];
+            } else {
+                $field_value = $post->$field;
+            }
+
+            if ( normalize_whitespace( $field_value ) != normalize_whitespace( $last_revision->$field ) ) {
+                $post_has_changed = true;
+                break;
+            }
+        }
+
+        return $post_has_changed;
     }
     
 

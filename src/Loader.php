@@ -21,6 +21,7 @@ class Loader
         add_filter('_wp_post_revision_fields', '\Taco\Post::getRevisionMetaFields');
 
         add_filter('wp_save_post_revision_check_for_changes', '\Taco\Post::alwaysPreviewChanges', 10, 3);
+        add_filter('wp_save_post_revision_post_has_changed', '\Taco\Post::checkMetafieldChanges', 10, 3);
 
         return true;
     }

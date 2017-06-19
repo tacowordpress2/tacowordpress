@@ -51,7 +51,7 @@ class Loader
     {
         $instance = new $class;
         $post_type = $instance->getPostType();
-        \Taco\Post::$post_types[$post_type] = $instance;
+        \Taco\Post::$post_types[$post_type] = get_class($instance);
 
         // WordPress has a limit of 20 characters per
         if (strlen($post_type) > 20) {
