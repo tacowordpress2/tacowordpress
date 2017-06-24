@@ -16,7 +16,7 @@ use Taco\Util\Str as Str;
 class Post extends Base
 {
     // Keep a static list of post types so we can look up the post class later
-    // This prevents us from having to registering 
+    // This prevents us from having to registering
     public static $post_types;
 
     const ID = 'ID';
@@ -29,8 +29,8 @@ class Post extends Base
     public $last_error          = null;
     private $_terms             = array();
     private $_real_post_type    = null;
-    
-    
+
+
     public function getKey()
     {
         return $this->getPostType();
@@ -82,8 +82,8 @@ class Post extends Base
 
         return true;
     }
-    
-    
+
+
     /**
      * Load the terms
      * @return bool
@@ -94,7 +94,7 @@ class Post extends Base
         if (!Arr::iterable($taxonomy_keys)) {
             return false;
         }
-        
+
         // TODO Move this to somewhere more efficient
         // Check if this should be an instance of TacoTerm.
         // If not, the object will just be a default WP object from wp_get_post_terms below.
@@ -121,7 +121,7 @@ class Post extends Base
             if (!Arr::iterable($terms)) {
                 continue;
             }
-            
+
             $terms = array_combine(
                 array_map('intval', Collection::pluck($terms, 'term_id')),
                 $terms
@@ -134,7 +134,7 @@ class Post extends Base
 
             $this->_terms[$taxonomy_key] = $terms;
         }
-        
+
         return true;
     }
 
@@ -208,12 +208,13 @@ class Post extends Base
         }
 
         // Save meta to either the post or revision
+        // Iterate the fields not the meta, in case the value passed in is empty
         if (Arr::iterable($meta)) {
             foreach ($meta as $k => $v) {
                 if (preg_match('/link/', $fields_and_attribs[$k]['type'])) {
                     $v = urldecode($v);
                 }
-                
+
                 // update_post_meta handles both add and update
                 update_metadata('post', $this->{self::ID}, $k, $v);
             }
@@ -248,7 +249,7 @@ class Post extends Base
                         $term_ids[$n] = $term_id->term_id;
                     }
                 }
-                
+
                 // Save taxonomy to the revision so previews work properly
                 // These don't get restored when going back revisions
                 wp_set_object_terms($this->_info[self::ID], $term_ids, $taxonomy_key);
@@ -406,12 +407,12 @@ class Post extends Base
         if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
             return $post_id;
         }
-        
+
         // Check that a post_type is defined. It's not in the case of a delete.
         if (!array_key_exists('post_type', $_POST)) {
             return $post_id;
         }
-        
+
         // Check perms
         $check = ($_POST['post_type'] === 'page') ? 'edit_page' : 'edit_post';
         if (!current_user_can($check, $post_id)) {
@@ -429,17 +430,19 @@ class Post extends Base
             $taxonomy_field_keys[$post_type . '_' . $taxonomy] = $taxonomy;
         }
 
-        // Assign vars
-        foreach ($_POST as $k => $v) {
-            if (in_array($k, $field_keys)) {
-                $updated_entry->set($k, $v);
+        // Assign vars.  Loop through the field keys rather than the POST vars in order to clear out
+        // a field if it's empty
+        foreach ($field_keys as $k) {
+            if (isset($_POST[$k])) {
+                $updated_entry->set($k, $_POST[$k]);
+            } else {
+                $updated_entry->set($k, '');
             }
 
-            if (!empty($taxonomy_field_keys[$k])) {
-                $taxonomy = $taxonomy_field_keys[$k];
-
+        foreach ($taxonomy_field_keys as $k => $taxonomy)
+            if (isset($_POST[$k])) {
                 $terms = [];
-                foreach ($v as $term_id) {
+                foreach ($_POST[$k] as $term_id) {
                     // For some reason Wordpress posts 0 to the category each time
                     if ($term_id != 0) {
                         $terms[] = get_term($term_id, $taxonomy);
@@ -573,7 +576,7 @@ class Post extends Base
       */
     public static function alwaysPreviewChanges($check_for_changes, $last_revision, $post) {
         if (
-            is_preview() || 
+            is_preview() ||
             (!empty($_REQUEST['wp-preview']) && $_REQUEST['wp-preview'] === 'dopreview')
         ) {
             return true;
@@ -587,7 +590,7 @@ class Post extends Base
       * Check for metafield changes here.  The Wordpress provided one is unreliable since
       * it doesn't load the meta fields of the current post, but rather what's already in
       * the database for some reason
-      * 
+      *
       */
     public static function checkMetafieldChanges($post_has_changed, $last_revision, $post) {
         // We don't need to go through this if Wordpress has already determined that this
@@ -612,7 +615,7 @@ class Post extends Base
 
         return $post_has_changed;
     }
-    
+
 
     /**
      * Render a meta box
@@ -638,7 +641,7 @@ class Post extends Base
                 && array_key_exists('REQUEST_URI', $_SERVER)
                 && preg_match('/post=([\d]{1,})/', $_SERVER['REQUEST_URI'])
             );
-            
+
             $field['type'] = (array_key_exists('type', $field)) ? $field['type'] : 'text';
 
             if (array_key_exists($name, $this->_info)) {
@@ -716,12 +719,12 @@ class Post extends Base
         if (!Arr::iterable($taxonomies)) {
             return false;
         }
-        
+
         $taxonomy = (array_key_exists($key, $taxonomies)) ? $taxonomies[$key] : false;
         if (!$taxonomy) {
             return false;
         }
-        
+
         // Handle all of these:
         // return array('one', 'two', 'three');
         // return array('one'=>'One Category', 'two', 'three');
@@ -743,11 +746,11 @@ class Post extends Base
         if (!array_key_exists('hierarchical', $taxonomy)) {
             $taxonomy['hierarchical'] = true;
         }
-        
+
         return $taxonomy;
     }
-    
-    
+
+
     /**
      * Get an autogenerated taxonomy label
      * @param string $str
@@ -840,7 +843,7 @@ class Post extends Base
         if (in_array($this->getPostType(), array('post', 'page'))) {
             return null;
         }
-        
+
         return array(
             'labels' => array(
                 'name'              => _x($this->getPlural(), 'post type general name'),
@@ -879,8 +882,8 @@ class Post extends Base
     {
         return true;
     }
-    
-    
+
+
     /**
      * Does this have an archive?
      * @return bool
@@ -889,8 +892,8 @@ class Post extends Base
     {
         return false;
     }
-    
-    
+
+
     /**
      * Get any applicable rewrites
      * The default behavior is for the post type slug to be used as the rewrite
@@ -939,8 +942,8 @@ class Post extends Base
         }
         return '';
     }
-    
-    
+
+
     /**
      * Show in the admin menu?
      * @return bool
@@ -949,8 +952,8 @@ class Post extends Base
     {
         return true;
     }
-    
-    
+
+
     /**
      * Show in the admin bar?
      * @return bool
@@ -1001,8 +1004,8 @@ class Post extends Base
         }
         return $vars;
     }
-    
-    
+
+
     /**
      * Make the admin taxonomy columns sortable
      * Admittedly this is a bit hackish
@@ -1014,7 +1017,7 @@ class Post extends Base
     public function makeAdminTaxonomyColumnsSortable($clauses, $wp_query)
     {
         global $wpdb;
-        
+
         // Not sorting at all? Get out.
         if (!array_key_exists('orderby', $wp_query->query)) {
             return $clauses;
@@ -1049,7 +1052,7 @@ class Post extends Base
         if ($wp_query->query['meta_key'] !== $sortable_taxonomy_key) {
             return $clauses;
         }
-        
+
         // Now we know which taxonomy the user is sorting by
         // but WordPress will think we're sorting by a meta_key.
         // Correct for this bad assumption by WordPress.
@@ -1061,7 +1064,7 @@ class Post extends Base
             '',
             $clauses['where']
         );
-        
+
         // This is how we find the posts
         $clauses['join'] .= "
             LEFT OUTER JOIN {$wpdb->term_relationships} ON {$wpdb->posts}.ID={$wpdb->term_relationships}.object_id
@@ -1087,8 +1090,8 @@ class Post extends Base
             $this->getTaxonomyKeys()
         );
     }
-    
-    
+
+
     /**
      * Hide the title from admin columns?
      * @return bool
@@ -1098,12 +1101,12 @@ class Post extends Base
         if (in_array('title', $this->getAdminColumns())) {
             return false;
         }
-        
+
         $supports = $this->getSupports();
         if (is_array($supports) && in_array('title', $supports)) {
             return false;
         }
-        
+
         return true;
     }
 
@@ -1118,7 +1121,7 @@ class Post extends Base
         if ($meta_boxes === self::METABOX_GROUPING_PREFIX) {
             $meta_boxes = $this->getPrefixGroupedMetaBoxes();
         }
-        
+
         $post_type = $this->getPostType();
         foreach ($meta_boxes as $k => $config) {
             $config = $this->getMetaBoxConfig($config, $k);
@@ -1128,7 +1131,7 @@ class Post extends Base
             if (!Arr::iterable($config['fields'])) {
                 continue;
             }
-            
+
             add_meta_box(
                 sprintf('%s_%s', $post_type, Str::machine($k)), // id
                 $config['title'],                 // title
@@ -1140,7 +1143,7 @@ class Post extends Base
             );
         }
     }
-    
+
 
     /**
      * Get the post type
@@ -1216,13 +1219,13 @@ class Post extends Base
             if (!Arr::iterable($results)) {
                 return array();
             }
-            
+
             return array_combine(
                 Collection::pluck($results, 'ID'),
                 Collection::pluck($results, 'post_title')
             );
         }
-        
+
         // Custom args provided
         $default_args = array(
             'post_type'  => $instance->getPostType(),
@@ -1245,8 +1248,8 @@ class Post extends Base
             Collection::pluck($all, 'post_title')
         );
     }
-    
-    
+
+
     /**
      * Get by a key/val
      * Note: This only works with custom meta fields, not core fields
@@ -1310,7 +1313,7 @@ class Post extends Base
             if (!Arr::iterable($results)) {
                 return array();
             }
-            
+
             return array_combine(
                 $post_ids,
                 Collection::pluck($results, 'post_title')
@@ -1329,7 +1332,7 @@ class Post extends Base
         if (!Arr::iterable($records)) {
             return array();
         }
-    
+
         return array_combine(
             Collection::pluck($records, 'ID'),
             Collection::pluck($records, 'post_title')
@@ -1374,7 +1377,7 @@ class Post extends Base
             $fields = $instance->getFields();
             if (array_key_exists($default_orderby, $fields)) {
                 $default_args['meta_key'] = $default_orderby;
-                
+
                 // Number fields should be sorted numerically, not alphabetically
                 // Of course, this currently requires you to use type=number to achieve numeric sorting
                 $default_args['orderby'] = ($fields[$default_orderby]['type'] === 'number')
@@ -1389,7 +1392,7 @@ class Post extends Base
             $fields = $instance->getFields();
             if (array_key_exists($args['orderby'], $fields)) {
                 $args['meta_key'] = $args['orderby'];
-                
+
                 // Number fields should be sorted numerically, not alphabetically
                 // Of course, this currently requires you to use type=number to achieve numeric sorting
                 $args['orderby'] = ($fields[$args['orderby']]['type'] === 'number')
@@ -1397,7 +1400,7 @@ class Post extends Base
                     : 'meta_value';
             }
         }
-        
+
         $criteria = array_merge($default_args, $args);
         return Post\Factory::createMultiple(get_posts($criteria), $load_terms);
     }
@@ -1619,8 +1622,8 @@ class Post extends Base
             ? current($results)
             : null;
     }
-    
-    
+
+
     /**
      * Get by a taxonomy and term
      * @param string $taxonomy
@@ -1643,8 +1646,8 @@ class Post extends Base
         ));
         return static::getWhere($args, $load_terms);
     }
-    
-    
+
+
     /**
      * Get one by a taxonomy and term
      * @param string $taxonomy
@@ -1862,7 +1865,7 @@ class Post extends Base
             ? array_merge($default_args, $args)
             : $default_args;
         extract($args);
-        
+
         $excerpt = $this->get('post_excerpt');
         if (!strlen($excerpt)) {
             $excerpt = strip_tags($this->get('post_content'));
@@ -1873,7 +1876,7 @@ class Post extends Base
             }
         }
         $excerpt = apply_filters('the_excerpt', $excerpt);
-        
+
         return ($strip_shortcodes) ? strip_shortcodes($excerpt) : $excerpt;
     }
 
@@ -1890,7 +1893,7 @@ class Post extends Base
         if (!has_post_thumbnail($this->get('ID'))) {
             return false;
         }
-        
+
         $thumbnail = get_the_post_thumbnail($this->get('ID'), $size, array(
             'title' => ($use_alt_as_title ? $alt : ''),
             'alt' => $alt
@@ -1911,7 +1914,7 @@ class Post extends Base
         if (!has_post_thumbnail($post_id)) {
             return false;
         }
-        
+
         $attachment_id = get_post_thumbnail_id($post_id);
         $image_properties = array(
             'url',
@@ -1961,8 +1964,8 @@ class Post extends Base
     {
         return wp_delete_post($this->get('ID'), $bypass_trash);
     }
-    
-    
+
+
     /**
      * Get the default order by
      * @return string
@@ -1971,8 +1974,8 @@ class Post extends Base
     {
         return 'menu_order';
     }
-    
-    
+
+
     /**
      * Get the default order
      * @return string
@@ -1981,8 +1984,8 @@ class Post extends Base
     {
         return 'ASC';
     }
-    
-    
+
+
     /**
      * Render a public field
      * @param string $key See code below for accepted vals
@@ -2012,8 +2015,8 @@ class Post extends Base
         }
         return self::getRenderMetaBoxField($key, $field);
     }
-    
-    
+
+
     /**
      * Get the nonce/CSRF action
      * @return string
@@ -2027,8 +2030,8 @@ class Post extends Base
             $this->getPostType()
         )));
     }
-    
-    
+
+
     /**
      * Verify the nonce
      * @param string $nonce
@@ -2038,8 +2041,8 @@ class Post extends Base
     {
         return wp_verify_nonce($nonce, $this->getNonceAction());
     }
-    
-    
+
+
     /**
      * Get the public form key
      * This is useful for integrations with FlashData and the like
