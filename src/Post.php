@@ -542,7 +542,26 @@ class Post extends Base
             return;
         }
 
-        return get_metadata('post', $revision->{self::ID}, $field, true);
+        $instance = new $class;
+        $meta_fields = $instance->getFields();
+        $value = get_metadata('post', $revision->{self::ID}, $field, true);
+
+        if (isset($meta_fields[$field]) && isset($meta_fields[$field]['type'])) {
+            $meta_field = $meta_fields[$field];
+            if ($meta_field['type'] === 'checkbox') {
+                if (!!$value) {
+                    $value = 'Yes';
+                } else {
+                    $value = 'No';
+                }
+            } else if($meta_field['type'] === 'select') {
+                if (!empty($meta_field['options'][$value])) {
+                    $value = $meta_field['options'][$value];
+                }
+            }
+        }
+
+        return $value;
     }
 
 
