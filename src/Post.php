@@ -571,7 +571,7 @@ class Post extends Base
 
         $instance = new $class;
         foreach ($instance->getFields() as $key => $value) {
-            $fields[$key] = $key;
+            $fields[$key] = $instance->getLabelText($key);
         }
 
         return $fields;
