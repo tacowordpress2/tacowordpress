@@ -141,7 +141,7 @@ class Post extends Base
 
     /**
      * Save a post
-     * By the time this hook is reached, the post revision has been saved and this is saving the main post
+     * This handles saving both revisions and the main post
      * @param bool $exclude_post If true, the post itself is not saved, and only the metadata
      * @param bool $is_revision Are we saving a revision
      * @return mixed Integer on success: post ID, false on failure (with WP_Error accessible via getLastError)
@@ -421,7 +421,12 @@ class Post extends Base
 
         // Get fields to assign
         $updated_entry = new $class;
-        $field_keys = array_merge(static::getCoreFieldKeys(), $instance->getMetaFieldKeys());
+        $meta_fields = $instance->getFields();
+
+        $field_keys = array_merge(
+            static::getCoreFieldKeys(),
+            array_keys($meta_fields)
+        );
 
         // Get terms to assign
         $taxonomies = $updated_entry->getTaxonomies();
@@ -431,15 +436,18 @@ class Post extends Base
         }
 
         // Assign vars.  Loop through the field keys rather than the POST vars in order to clear out
-        // a field if it's empty
+        // empty checkboxes
         foreach ($field_keys as $k) {
             if (isset($_POST[$k])) {
                 $updated_entry->set($k, $_POST[$k]);
             } else {
-                $updated_entry->set($k, '');
+                if (!empty($meta_fields[$k]['type']) && $meta_fields[$k]['type'] === 'checkbox') {
+                    $updated_entry->set($k, '0');
+                }
             }
+        }
 
-        foreach ($taxonomy_field_keys as $k => $taxonomy)
+        foreach ($taxonomy_field_keys as $k => $taxonomy)  {
             if (isset($_POST[$k])) {
                 $terms = [];
                 foreach ($_POST[$k] as $term_id) {
