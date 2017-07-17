@@ -45,15 +45,17 @@ class Post extends Base
      */
     public function load($id, $load_terms = true)
     {
-        // Load the latest revision if this is a preview but save the post type
-        // So we can load the metadata later
-        $this->_real_post_type = $id->post_type;
+        $info = (is_object($id)) ? $id : get_post($id);
+
+        // Save the actual post type here in case we end up loading a revision for a preview
+        $this->_real_post_type = $info->post_type;
+
         if (is_preview()) {
             $revisions = wp_get_post_revisions($id);
             $id = array_shift($revisions);
+            $info = (is_object($id)) ? $id : get_post($id);
         }
 
-        $info = (is_object($id)) ? $id : get_post($id);
         if (!is_object($info)) {
             return false;
         }
@@ -82,7 +84,6 @@ class Post extends Base
 
         return true;
     }
-
 
     /**
      * Load the terms
@@ -385,7 +386,7 @@ class Post extends Base
     {
         // Don't save the post itself if this is a preview
         // The revision still needs to be saved to since that's how the preview fields get populated
-        if ($post->post_type !== 'revision' && $_REQUEST['wp-preview'] === 'dopreview') {
+        if ($post->post_type !== 'revision' && isset($_REQEUST['wp-preview']) && $_REQUEST['wp-preview'] === 'dopreview') {
             return;
         }
 
