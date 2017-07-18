@@ -723,6 +723,17 @@ class Post extends Base
         }
 
         register_post_type($this->getPostType(), $config);
+
+        // Put fields in REST API
+        $fields = $this->getFields();
+        register_rest_field($this->getPostType(), 'fields', [
+            'get_callback' => function($post) use($fields) {
+                $meta_fields = get_post_meta($post['id'], '', true);
+                return array_filter($meta_fields, function($key) use($fields) {
+                    return in_array($key, array_keys($fields));
+                }, ARRAY_FILTER_USE_KEY);
+            }
+        ]);
     }
 
 
@@ -891,6 +902,7 @@ class Post extends Base
             'supports'            => $this->getSupports(),
             'show_in_menu'        => $this->getShowInMenu(),
             'show_in_admin_bar'   => $this->getShowInAdminBar(),
+            'show_in_rest'        => $this->getShowInRest(),
             'menu_icon'           => $this->getMenuIcon(),
             'menu_position'       => $this->getMenuPosition(),
             'exclude_from_search' => $this->getExcludeFromSearch(),
@@ -987,6 +999,16 @@ class Post extends Base
      * @return bool
      */
     public function getShowInAdminBar()
+    {
+        return true;
+    }
+
+
+    /**
+     * Show in the REST API?
+     * @return bool
+     */
+    public function getShowInRest()
     {
         return true;
     }
