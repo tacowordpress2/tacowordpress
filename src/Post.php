@@ -718,11 +718,9 @@ class Post extends Base
     public function registerPostType()
     {
         $config = $this->getPostTypeConfig();
-        if (empty($config)) {
-            return;
+        if (!empty($config)) {
+            register_post_type($this->getPostType(), $config);
         }
-
-        register_post_type($this->getPostType(), $config);
 
         // Put fields in REST API
         $fields = $this->getFields();
