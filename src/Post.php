@@ -1982,6 +1982,13 @@ class Post extends Base
             $image_properties,
             array_values(wp_get_attachment_image_src($attachment_id, $size))
         );
+
+        $attachment = get_post($attachment_id);
+        $image_array['alt_text']    = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+        $image_array['description'] = apply_filters('the_content', $attachment->post_content);
+        $image_array['caption']     = get_the_excerpt($attachment_id);
+        $image_array['title']       = get_the_title($attachment_id);
+
         if (in_array($property, $image_properties)) {
             return $image_array[$property];
         }
