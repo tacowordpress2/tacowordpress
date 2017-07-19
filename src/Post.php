@@ -1972,6 +1972,12 @@ class Post extends Base
         }
 
         $attachment_id = get_post_thumbnail_id($post_id);
+        $attachment_src = wp_get_attachment_image_src($attachment_id, $size);
+
+        if (empty($attachment_id) || empty($attachment_src)) {
+            return false;
+        }
+
         $image_properties = array(
             'url',
             'width',
@@ -1980,7 +1986,7 @@ class Post extends Base
         );
         $image_array = array_combine(
             $image_properties,
-            array_values(wp_get_attachment_image_src($attachment_id, $size))
+            array_values($attachment_src)
         );
 
         $attachment = get_post($attachment_id);
