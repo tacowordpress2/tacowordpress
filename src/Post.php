@@ -732,6 +732,13 @@ class Post extends Base
                 }, ARRAY_FILTER_USE_KEY);
             }
         ]);
+
+        // Add human date to REST API
+        register_rest_field($this->getPostType(), 'human_date', [
+            'get_callback' => function($post) {
+                return get_the_date('', $post['id']);
+            }
+        ]);
     }
 
 
@@ -901,6 +908,7 @@ class Post extends Base
             'show_in_menu'        => $this->getShowInMenu(),
             'show_in_admin_bar'   => $this->getShowInAdminBar(),
             'show_in_rest'        => $this->getShowInRest(),
+            'rest_base'           => strtolower(Str::machine($this->getPlural())),
             'menu_icon'           => $this->getMenuIcon(),
             'menu_position'       => $this->getMenuPosition(),
             'exclude_from_search' => $this->getExcludeFromSearch(),
