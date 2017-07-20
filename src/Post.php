@@ -791,6 +791,9 @@ class Post extends Base
             $taxonomy['hierarchical'] = true;
         }
 
+        // Default to show all taxonomies in REST API
+        $taxonomy['show_in_rest'] = true;
+
         return $taxonomy;
     }
 
