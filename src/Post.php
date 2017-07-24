@@ -726,10 +726,14 @@ class Post extends Base
         $fields = $this->getFields();
         register_rest_field($this->getPostType(), 'fields', [
             'get_callback' => function($post) use($fields) {
-                $meta_fields = get_post_meta($post['id'], '', true);
-                return array_filter($meta_fields, function($key) use($fields) {
+                $meta_fields = get_post_meta($post['id'], '');
+                $filtered_fields = array_filter($meta_fields, function($key) use($fields) {
                     return in_array($key, array_keys($fields));
                 }, ARRAY_FILTER_USE_KEY);
+
+                return array_map(function($field) {
+                    return $field[0];
+                }, $filtered_fields);
             }
         ]);
 
