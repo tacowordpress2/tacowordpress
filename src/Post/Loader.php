@@ -28,7 +28,7 @@ class Loader
     public static function loadAll()
     {
         global $taxonomies_infos;
-        
+
         // Classes
         $subclasses = self::getSubclasses();
         foreach ($subclasses as $class) {
@@ -37,11 +37,11 @@ class Loader
                 $taxonomies_infos,
                 $instance->getTaxonomiesInfo()
             );
-            
+
             self::load($class);
         }
     }
-    
+
 
     /**
      * Load a post type
@@ -63,7 +63,7 @@ class Loader
         if (!$post_type) {
             return false;
         }
-        
+
         //add_action('init', array($instance, 'registerPostType'));
         $instance->registerPostType();
 
@@ -71,9 +71,15 @@ class Loader
         foreach (array_keys($instance->getFields()) as $meta_key) {
             // Prevent collisions since it doesn't really matter which class this filter is registered on
             if (has_filter('_wp_post_revision_field_' . $meta_key, '\Taco\Post::getRevisionMetaValue') === false) {
-                add_filter( '_wp_post_revision_field_' . $meta_key, '\Taco\Post::getRevisionMetaValue', 10, 4 );   
+                add_filter( '_wp_post_revision_field_' . $meta_key, '\Taco\Post::getRevisionMetaValue', 10, 4 );
             }
         }
+
+
+        // Add REST endpoints for meta query sorting
+        add_filter('rest_endpoints', array($instance, 'restPostMetaEndpoints'));
+        add_filter('rest_' . $instance->getRealPostType() . '_query', array($instance, 'restMetaKeyMap'), 10, 2);
+
 
         if (is_admin()) {
             // If we're in the edit screen, we want the post loaded
@@ -98,14 +104,14 @@ class Loader
             if ($post && $post->post_type === $instance->getPostType()) {
                 $instance->load($post);
             }
-            
+
             add_action('admin_menu', array($instance, 'addMetaBoxes'));
             add_action(sprintf('manage_%s_posts_columns', $post_type), array($instance, 'addAdminColumns'), 10, 2);
             add_action(sprintf('manage_%s_posts_custom_column', $post_type), array($instance, 'renderAdminColumn'), 10, 2);
             add_filter(sprintf('manage_edit-%s_sortable_columns', $post_type), array($instance, 'makeAdminColumnsSortable'));
             add_filter('request', array($instance, 'sortAdminColumns'));
             add_filter('posts_clauses', array($instance, 'makeAdminTaxonomyColumnsSortable'), 10, 2);
-            
+
             // Hide the title column in the browse view of the admin UI
             $is_browsing_index = (
                 is_array($_SERVER)
@@ -119,8 +125,8 @@ class Loader
             }
         }
     }
-    
-    
+
+
     /**
      * Register the taxonomies
      * WordPress limits calls to register_taxonomy to once per taxonomy
@@ -133,7 +139,7 @@ class Loader
         if (!Arr::iterable($taxonomies_infos)) {
             return 0;
         }
-        
+
         // Start by grouping all taxonomy requests by taxonomy key
         $count = 0;
         $grouped = Collection::groupBy($taxonomies_infos, 'key');
@@ -141,16 +147,16 @@ class Loader
             // Now get all the post types
             $post_types = Collection::pluck($key_taxonomies, 'post_type');
             $configs = Collection::pluck($key_taxonomies, 'config');
-            
+
             // Now we can finally register this taxonomy
             register_taxonomy($key, $post_types, current($configs));
-            
+
             $count++;
         }
         return $count;
     }
-    
-    
+
+
     /**
      * Get all subclasses
      * @return array

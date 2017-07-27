@@ -747,6 +747,50 @@ class Post extends Base
 
 
     /**
+     * Add REST endpoints as routes
+     * Adapted from https://github.com/WP-API/WP-API/issues/2308#issuecomment-266107899
+     *
+     * @return void
+     */
+    public function restPostMetaEndpoints($routes) {
+        // Only modify routes for this post type
+        $route_name = '/wp/v2/' . $this->getRestBase();
+        if (empty($routes['/wp/v2/' . $this->getRestBase()])) {
+            return $routes;
+        }
+
+        // Make sure to use the correct one of meta_value or meta_value_num for numbers in front end
+        $routes[$route_name][0]['args']['orderby']['enum'][] = 'meta_value';
+        $routes[$route_name][0]['args']['orderby']['enum'][] = 'meta_value_num';
+
+        // Allow only the meta keys that I want
+        $routes[$route_name][0]['args']['meta_key'] = [
+            'description'       => 'The meta key to query.',
+            'type'              => 'string',
+            'enum'              => array_keys($this->getFields()),
+            'validate_callback' => 'rest_validate_request_arg',
+        ];
+
+        return $routes;
+    }
+
+
+    /**
+     * Map REST params to query params
+     * Adapted from https://github.com/WP-API/WP-API/issues/2308#issuecomment-266107899
+     *
+     * @return void
+     */
+    public function restMetaKeyMap($args, $request) {
+        if ($key = $request->get_param('meta_key')) {
+	        $args['meta_key'] = $key;
+	    }
+
+	    return $args;
+    }
+
+
+    /**
      * Get the taxonomies
      * @return array
      */
@@ -915,7 +959,7 @@ class Post extends Base
             'show_in_menu'        => $this->getShowInMenu(),
             'show_in_admin_bar'   => $this->getShowInAdminBar(),
             'show_in_rest'        => $this->getShowInRest(),
-            'rest_base'           => strtolower(Str::machine($this->getPlural())),
+            'rest_base'           => $this->getRestBase(),
             'menu_icon'           => $this->getMenuIcon(),
             'menu_position'       => $this->getMenuPosition(),
             'exclude_from_search' => $this->getExcludeFromSearch(),
@@ -923,6 +967,17 @@ class Post extends Base
             'rewrite'             => $this->getRewrite(),
             'publicly_queryable'  => $this->getPubliclyQueryable(),
         );
+    }
+
+
+    /**
+     * Get the lower case machine plural to use for REST to be consistent
+     *
+     * @return string
+     */
+    public function getRestBase()
+    {
+        return strtolower(Str::machine($this->getPlural()));
     }
 
 
