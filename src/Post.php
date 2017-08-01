@@ -786,6 +786,10 @@ class Post extends Base
 	        $args['meta_key'] = $key;
 	    }
 
+        if ($key = $request->get_param('meta_value')) {
+	        $args['meta_value'] = $key;
+	    }
+
 	    return $args;
     }
 
