@@ -771,6 +771,13 @@ class Post extends Base
             'validate_callback' => 'rest_validate_request_arg',
         ];
 
+        // Allow meta_query.  Pass in as a JSON string
+        $routes[$route_name][0]['args']['meta_query'] = [
+            'description'       => 'A WordPress meta query.',
+            'type'              => 'string',
+            'validate_callback' => 'rest_validate_request_arg',
+        ];
+
         return $routes;
     }
 
@@ -788,6 +795,10 @@ class Post extends Base
 
         if ($key = $request->get_param('meta_value')) {
 	        $args['meta_value'] = $key;
+	    }
+
+        if ($key = $request->get_param('meta_query')) {
+	        $args['meta_query'] = $key;
 	    }
 
 	    return $args;

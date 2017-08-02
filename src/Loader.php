@@ -12,7 +12,7 @@ class Loader
 
         // Add action to save post
         add_action('save_post', '\Taco\Post::addSaveHooks', 10, 3);
-        
+
         // Allow post meta to be restored
         add_action('wp_restore_post_revision', '\Taco\Post::addRestoreRevisionHooks', 10, 2);
 
@@ -22,6 +22,11 @@ class Loader
 
         add_filter('wp_save_post_revision_check_for_changes', '\Taco\Post::alwaysPreviewChanges', 10, 3);
         add_filter('wp_save_post_revision_post_has_changed', '\Taco\Post::checkMetafieldChanges', 10, 3);
+
+        // JSON decode the meta query variable
+        add_filter ('rest_query_var-meta_query', function($value) {
+          return json_decode($value, true);;
+        });
 
         return true;
     }
