@@ -50,7 +50,7 @@ class Post extends Base
         // Save the actual post type here in case we end up loading a revision for a preview
         $this->_real_post_type = $info->post_type;
 
-        if (is_preview()) {
+        if (is_preview() && $info->post_type !== 'sub-post-revision') {
             $revisions = wp_get_post_revisions($id);
             $id = array_shift($revisions);
             $info = (is_object($id)) ? $id : get_post($id);
