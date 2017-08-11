@@ -65,8 +65,15 @@ If you want to login to the WordPress admin UI for the test suite, you need to:
         p: admin
 
 # Changelog
+### v1.1.1
+* Making subpost revisions work
+
+### v1.1
+* Adding hooks to allow meta queries to work in the REST API
+
 ### v1.0
 * Updating to work with PHP 7
 * Adding postmeta revisions
+
 ### v0.9
 * Tagging last version of Taco to run on PHP 5
