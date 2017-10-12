@@ -351,7 +351,7 @@ class Post extends Base
             //'trackbacks',
             //'custom-fields',
             //'comments',
-            //'revisions',
+            'revisions',
             //'page-attributes',
             //'post-formats',
         );
@@ -503,18 +503,23 @@ class Post extends Base
       */
     private function restoreRevisionMeta($post, $revision_id) {
         $fields_and_attribs = static::getFields();
-        $meta_keys = array_keys($fields_and_attribs);
 
         $revision_meta = get_metadata('post', $revision_id, '', true);
 
         if ($revision_meta === false) {
-            foreach($meta_keys as $meta_key) {
+            foreach($fields_and_attribs as $meta_key => $meta_field) {
                 delete_post_meta($post->{self::ID}, $meta_key);
             }
         } else {
-            foreach($meta_keys as $meta_key) {
+            foreach($fields_and_attribs as $meta_key => $meta_field) {
                 if (array_key_exists($meta_key, $revision_meta)) {
                     update_post_meta($post->{self::ID}, $meta_key, $revision_meta[$meta_key][0]);
+
+                    if (isset($meta_field['class']) && $meta_field['class'] === 'addmany' ) {
+                        if (defined('USE_LEGACY_ADDMANY') && USE_LEGACY_ADDMANY === true) {
+                            \JasandPereza\AddMany::setSubposts($post->{self::ID}, $revision_meta[$meta_key][0]);
+                        }
+                    }
                 } else {
                     delete_post_meta($post->{self::ID}, $meta_key);
                 }
@@ -549,6 +554,7 @@ class Post extends Base
 
         if (isset($meta_fields[$field]) && isset($meta_fields[$field]['type'])) {
             $meta_field = $meta_fields[$field];
+
             if ($meta_field['type'] === 'checkbox') {
                 if (!!$value) {
                     $value = 'Yes';
@@ -558,6 +564,52 @@ class Post extends Base
             } else if($meta_field['type'] === 'select') {
                 if (!empty($meta_field['options'][$value])) {
                     $value = $meta_field['options'][$value];
+                }
+            } else if(isset($meta_field['class']) && $meta_field['class'] === 'addbysearch') {
+                // Get each post title if this is an addbysearch
+                $values = [];
+
+                $post_ids = explode(',', $value);
+                foreach($post_ids as $post_id) {
+                    $post = get_post(trim($post_id));
+                    if ($post) {
+                        $values[] = $post->post_title;
+                    } else {
+                        $values[] = 'Post Deleted';
+                    }
+                }
+
+                $value = implode("\n", $values);
+            } else if (isset($meta_field['class']) && $meta_field['class'] === 'addmany') {
+                if (defined('USE_LEGACY_ADDMANY') && USE_LEGACY_ADDMANY === true) {
+                    $post_ids = explode(',', $value);
+
+                    $values = [];
+                    // Get the child fields for each subpost
+                    foreach($post_ids as $post_id) {
+                        $post = get_post($post_id);
+                        if ($post) {
+                            $post = \Taco\Post\Factory::create($post_id);
+                            $fields = $meta_field[$post->fields_variation]['fields'];
+
+                            $field_values = [];
+
+                            // Append field values for each subpost field value
+                            foreach($fields as $field_name => $field) {
+                                if (!empty($meta_field[$post->fields_variation]['fields']['label'])) {
+                                    $field_values[] = $meta_field[$post->fields_variation]['fields']['label'] . ': ' . $post->$field_name;
+                                } else {
+                                    $field_values[] = Str::human($field_name) . ': '. $post->$field_name;
+                                }
+                            }
+
+                            $values[] = implode("\n", $field_values);
+                        } else {
+                            $values[] = 'Post Deleted';
+                        }
+                    }
+
+                    $value = implode("\n", $values);
                 }
             }
         }
