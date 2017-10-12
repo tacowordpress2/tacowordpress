@@ -65,6 +65,9 @@ If you want to login to the WordPress admin UI for the test suite, you need to:
         p: admin
 
 # Changelog
+
+### v1.1.2
+* Adding formatting for several content types for revisions: addmany, links, and legacy addmany and addbysearch
 ### v1.1.1
 * Making subpost revisions work
 
