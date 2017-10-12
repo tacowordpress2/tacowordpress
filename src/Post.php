@@ -528,6 +528,24 @@ class Post extends Base
     }
 
 
+    // Pretty print JSON for revisions
+    // Just return a string if it's not JSON
+    private static function prettyPrintJSON($str, $level = 0) {
+        $json_obj = json_decode($str);
+        if ($json_obj === null) {
+            return $str;
+        }
+
+        $value = '';
+        foreach($json_obj as $field_name => $field_value) {
+            $value .= str_repeat(' ', $level * 4);
+            $value .= Str::human($field_name) . ': ' . static::prettyPrintJSON($field_value, $level + 1) . "\n";
+        }
+
+        return $value;
+    }
+
+
     /**
       * Get a meta value for a revision
       * @param string $compare_from_value The value of the revision - this seems to always be empty which is why we need to override this function
@@ -550,7 +568,7 @@ class Post extends Base
 
         $instance = new $class;
         $meta_fields = $instance->getFields();
-        $value = get_metadata('post', $revision->{self::ID}, $field, true);
+        $value = get_metadata('post', $revision->{static::ID}, $field, true);
 
         if (isset($meta_fields[$field]) && isset($meta_fields[$field]['type'])) {
             $meta_field = $meta_fields[$field];
@@ -565,6 +583,8 @@ class Post extends Base
                 if (!empty($meta_field['options'][$value])) {
                     $value = $meta_field['options'][$value];
                 }
+            } else if($meta_field['type'] === 'link') {
+                $value = static::prettyPrintJSON($value);
             } else if(isset($meta_field['class']) && $meta_field['class'] === 'addbysearch') {
                 // Get each post title if this is an addbysearch
                 $values = [];
@@ -581,35 +601,52 @@ class Post extends Base
 
                 $value = implode("\n", $values);
             } else if (isset($meta_field['class']) && $meta_field['class'] === 'addmany') {
-                if (defined('USE_LEGACY_ADDMANY') && USE_LEGACY_ADDMANY === true) {
-                    $post_ids = explode(',', $value);
+                // Handle legacy addmany
+                $post_ids = explode(',', $value);
 
-                    $values = [];
-                    // Get the child fields for each subpost
-                    foreach($post_ids as $post_id) {
-                        $post = get_post($post_id);
-                        if ($post) {
-                            $post = \Taco\Post\Factory::create($post_id);
-                            $fields = $meta_field[$post->fields_variation]['fields'];
+                $values = [];
+                // Get the child fields for each subpost
+                foreach($post_ids as $post_id) {
+                    $post = get_post($post_id);
+                    if ($post) {
+                        $post = \Taco\Post\Factory::create($post_id);
+                        $fields = $meta_field[$post->fields_variation]['fields'];
 
-                            $field_values = [];
+                        $field_values = [];
 
-                            // Append field values for each subpost field value
-                            foreach($fields as $field_name => $field) {
-                                if (!empty($meta_field[$post->fields_variation]['fields']['label'])) {
-                                    $field_values[] = $meta_field[$post->fields_variation]['fields']['label'] . ': ' . $post->$field_name;
-                                } else {
-                                    $field_values[] = Str::human($field_name) . ': '. $post->$field_name;
-                                }
+                        // Append field values for each subpost field value
+                        foreach($fields as $field_name => $field) {
+                            if (!empty($meta_field[$post->fields_variation]['fields']['label'])) {
+                                $field_values[] = $meta_field[$post->fields_variation]['fields']['label'] . ': ' . $post->$field_name;
+                            } else {
+                                $field_values[] = Str::human($field_name) . ': '. $post->$field_name;
+                            }
+                        }
+
+                        $values[] = implode("\n", $field_values);
+                    } else {
+                        $values[] = 'Post Deleted';
+                    }
+                }
+
+                $value = implode("\n", $values);
+            } else if (isset($meta_field['data-addmany']) && $meta_field['data-addmany'] === true) {
+                // Handle new addmany
+                $value_obj = json_decode($value);
+                $value = '';
+
+                if (isset($value_obj->subposts)) {
+                    foreach ($value_obj->subposts as $subpost) {
+                        foreach ($subpost->fieldsConfig as $field_name => $field) {
+                            if (!empty($field->label)) {
+                                $value .= $field->label;
+                            } else {
+                                $value .= Str::human($field_name);
                             }
 
-                            $values[] = implode("\n", $field_values);
-                        } else {
-                            $values[] = 'Post Deleted';
+                            $value .= ': ' . static::prettyPrintJSON($field->value) . "\n";
                         }
                     }
-
-                    $value = implode("\n", $values);
                 }
             }
         }
