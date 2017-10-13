@@ -516,9 +516,11 @@ class Post extends Base
                     update_post_meta($post->{self::ID}, $meta_key, $revision_meta[$meta_key][0]);
 
                     if (isset($meta_field['class']) && $meta_field['class'] === 'addmany' ) {
-                        if (defined('USE_LEGACY_ADDMANY') && USE_LEGACY_ADDMANY === true) {
-                            \JasandPereza\AddMany::setSubposts($post->{self::ID}, $revision_meta[$meta_key][0]);
-                        }
+                        \JasandPereza\AddMany::setSubposts($post->{self::ID}, $revision_meta[$meta_key][0]);
+                    }
+
+                    if (isset($meta_field['data-addmany']) && $meta_field['data-addmany'] === true) {
+                        \Taco\AddMany\AddMany::restoreSubposts($post, $revision_id, $revision_meta[$meta_key][0]);
                     }
                 } else {
                     delete_post_meta($post->{self::ID}, $meta_key);

@@ -4,14 +4,19 @@ jQuery(function() {
   var $ = jQuery;
   // Add an associated image thumbnail
   $.fn.addImage = function(url) {
-    $(this).removeImage();
+    $(this).removeImage(true);
     $(this).closest('.upload_field').prepend('<img src="' + url + '" class="thumbnail" />');
+    $(this).closest('.upload_field').find('.upload').trigger('change');
     return $(this);
   };
 
   // Remove an associated image thumbnail
-  $.fn.removeImage = function() {
+  $.fn.removeImage = function(suppressTriggerChange) {
     $(this).closest('.upload_field').find('.thumbnail').remove();
+
+    if (!suppressTriggerChange) {
+      $(this).closest('.upload_field').find('.upload').trigger('change');
+    }
     return $(this);
   };
 
