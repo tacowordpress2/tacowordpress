@@ -38,7 +38,6 @@ TacoWordPress.FieldLinks.FieldLink.prototype = {
 
     if($object.val().search(/\{/) > -1) {
       var link_object = JSON.parse($object.val());
-      console.log(link_object);
       this.href = link_object.href;
       this.title = link_object.title;
     }
@@ -146,6 +145,7 @@ TacoWordPress.FieldLinks.FieldLink.prototype = {
 
     this.$object.parent().find('.btn-add').on('click', function(e) {
       e.preventDefault();
+      window.wpActiveEditor = 'content';
       static_self.wpActiveEditor = true;
       static_self.wpLink.open();
       
@@ -160,6 +160,7 @@ TacoWordPress.FieldLinks.FieldLink.prototype = {
 
     this.$object.parent().find('.btn-edit').on('click', function(e) {
       e.preventDefault();
+      window.wpActiveEditor = 'content';
       static_self.wpActiveEditor = true;
       static_self.wpLink.open();
       
