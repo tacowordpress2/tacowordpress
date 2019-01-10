@@ -25,7 +25,9 @@ class Loader
 
         // JSON decode the meta query variable
         add_filter ('rest_query_var-meta_query', function($value) {
-          return json_decode($value, true);;
+            return is_string($value)
+                ? json_decode($value, true) ?: $value
+                : $value;
         });
 
         return true;
