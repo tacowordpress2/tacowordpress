@@ -2057,7 +2057,7 @@ class Post extends Base
      */
     public function getTheTitle()
     {
-        return apply_filters('the_title', $this->get('post_title'));
+        return apply_filters('the_title', $this->get('post_title'), $this->get('ID'));
     }
 
 
