@@ -45,10 +45,14 @@ class Factory
         if (!class_exists($class)) {
             $class = str_replace(' ', '\\', ucwords(str_replace(Base::SEPARATOR, ' ', $post->post_type)));
         }
-        
-        $instance = new $class;
-        $instance->load($post, $load_terms);
-        return $instance;
+
+        if (class_exists($class)) {   
+            $instance = new $class;
+            $instance->load($post, $load_terms);
+            return $instance;
+        } else {
+            return false;
+        }
     }
     
     
