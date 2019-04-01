@@ -77,6 +77,6 @@ class Factory
             $record = self::create($post, $load_terms);
             $out[$k] = $record;
         }
-        return $out;
+        return array_filter($out); // must be filtered now since create can return false.
     }
 }
